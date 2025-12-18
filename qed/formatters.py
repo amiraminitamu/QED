@@ -35,11 +35,14 @@ class TextResultFormatter(ResultFormatter):
     def _header(self, result: SimulationResult) -> str:
         spec = result.spec
         lam = spec.lam
-        return (
-            "=== QED Calculation ===\n"
-            f"basis: {spec.basis}\n"
-            f"omega: {spec.omega:.6f}  lambda: ({lam[0]:.6f}, {lam[1]:.6f}, {lam[2]:.6f})  nmode: {spec.nmode}\n"
-        )
+        lines = [
+            "=== QED Calculation ===",
+            f"basis: {spec.basis}",
+            f"omega: {spec.omega:.6f}  lambda: ({lam[0]:.6f}, {lam[1]:.6f}, {lam[2]:.6f})  nmode: {spec.nmode}",
+        ]
+        if spec.reference == "uhf":
+            lines.append("reference: UHF (open-shell)")
+        return "\n".join(lines) + "\n"
 
     def _format_hf(self, result: SimulationResult) -> str:
         scf = result.scf

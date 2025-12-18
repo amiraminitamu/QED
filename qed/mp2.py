@@ -4,7 +4,7 @@ QED-MP2 correction routines.
 
 from __future__ import annotations
 
-from typing import Dict
+from typing import Dict, Tuple
 
 import numpy as np
 
@@ -90,3 +90,106 @@ def qed_mp2_correction(
         print(f"QED-MP2 corr:   {e_qedmp2: .12f} Ha")
 
     return {"emp2_el": float(e_el), "emp2_ph": float(e_ph), "emp2_total": float(e_qedmp2)}
+
+
+def eri_ao_to_mo_uhf(eri_ao: np.ndarray, Ca: np.ndarray, Cb: np.ndarray) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    AO → MO ERIs for UHF (chemist notation).
+
+    Returns three spin blocks: ``g_aa``, ``g_bb``, and ``g_ab``.
+    """
+
+    g_aa = np.einsum("pqrs,pi,qj,rk,sl->ijkl", eri_ao, Ca, Ca, Ca, Ca, optimize=True)
+    g_bb = np.einsum("pqrs,pi,qj,rk,sl->ijkl", eri_ao, Cb, Cb, Cb, Cb, optimize=True)
+    g_ab = np.einsum("pqrs,pi,qj,rk,sl->ijkl", eri_ao, Ca, Ca, Cb, Cb, optimize=True)
+    return g_aa, g_bb, g_ab
+
+
+def mp2_corr_uhf(
+    eps_a: np.ndarray,
+    eps_b: np.ndarray,
+    g_aa: np.ndarray,
+    g_bb: np.ndarray,
+    g_ab: np.ndarray,
+    nocc_a: int,
+    nocc_b: int,
+) -> float:
+    """Standard UMP2 correlation energy."""
+
+    oa = slice(0, nocc_a)
+    va = slice(nocc_a, g_aa.shape[0])
+    ob = slice(0, nocc_b)
+    vb = slice(nocc_b, g_bb.shape[0])
+
+    # αα
+    denom_aa = (
+        eps_a[oa, None, None, None] + eps_a[None, None, oa, None]
+        - eps_a[None, va, None, None] - eps_a[None, None, None, va]
+    )
+    denom_aa = np.where(np.abs(denom_aa) < 1e-14, 1e-14, denom_aa)
+    E_aa = np.sum(
+        g_aa[oa, va, oa, va]
+        * (g_aa[oa, va, oa, va] - g_aa[oa, va, oa, va].transpose(0, 3, 2, 1))
+        / denom_aa
+    )
+
+    # ββ
+    denom_bb = (
+        eps_b[ob, None, None, None] + eps_b[None, None, ob, None]
+        - eps_b[None, vb, None, None] - eps_b[None, None, None, vb]
+    )
+    denom_bb = np.where(np.abs(denom_bb) < 1e-14, 1e-14, denom_bb)
+    E_bb = np.sum(
+        g_bb[ob, vb, ob, vb]
+        * (g_bb[ob, vb, ob, vb] - g_bb[ob, vb, ob, vb].transpose(0, 3, 2, 1))
+        / denom_bb
+    )
+
+    # αβ
+    denom_ab = (
+        eps_a[oa, None, None, None] + eps_b[None, None, ob, None]
+        - eps_a[None, va, None, None] - eps_b[None, None, None, vb]
+    )
+    denom_ab = np.where(np.abs(denom_ab) < 1e-14, 1e-14, denom_ab)
+    E_ab = np.sum(g_ab[oa, va, ob, vb] ** 2 / denom_ab)
+
+    return float(E_aa + E_bb + E_ab)
+
+
+def qed_mp2_correction_uhf(
+    *,
+    eps_a: np.ndarray,
+    eps_b: np.ndarray,
+    C_a: np.ndarray,
+    C_b: np.ndarray,
+    nocc_a: int,
+    nocc_b: int,
+    eri_qed: np.ndarray,
+    hc_ao: np.ndarray,
+    omega: float,
+    verbose: bool = True,
+) -> Dict[str, float]:
+    """QED-MP2 correction for an open-shell (UHF) reference."""
+
+    g_aa, g_bb, g_ab = eri_ao_to_mo_uhf(eri_qed, C_a, C_b)
+    e_el = mp2_corr_uhf(eps_a, eps_b, g_aa, g_bb, g_ab, nocc_a, nocc_b)
+
+    hc_a = C_a.conj().T @ hc_ao @ C_a
+    hc_b = C_b.conj().T @ hc_ao @ C_b
+
+    def photon_term(eps: np.ndarray, h_mo: np.ndarray, nocc: int) -> float:
+        h_ov = h_mo[:nocc, nocc:]
+        dE = eps[nocc:][None, :] - eps[:nocc][:, None]
+        denom = np.where(np.abs(dE + omega) < 1e-14, 1e-14, dE + omega)
+        return -omega * np.sum(np.abs(h_ov) ** 2 / denom)
+
+    e_ph = photon_term(eps_a, hc_a, nocc_a) + photon_term(eps_b, hc_b, nocc_b)
+    e_tot = e_el + e_ph
+
+    if verbose:
+        print("\n=== QED-MP2 (open-shell) ===")
+        print(f"electronic MP2: {e_el: .12f} Ha")
+        print(f"photon term:    {e_ph: .12f} Ha")
+        print(f"QED-MP2 corr:   {e_tot: .12f} Ha")
+
+    return {"emp2_el": float(e_el), "emp2_ph": float(e_ph), "emp2_total": float(e_tot)}

@@ -57,6 +57,7 @@ spec = SimulationSpec(
     max_iter=1000,
     print_every=5,
     scf_type="pk",
+    reference="rhf",        # set to "uhf" for open-shell
     run_mp2=True,          # set False to skip MP2
     spin_factor="closed_shell",
 )
@@ -67,6 +68,10 @@ print(formatted)           # human-readable summary
 print(result.qedhf_energy) # structured access to QEDHF
 print(result.qedmp2_total) # MP2 total (if enabled)
 ```
+
+To run an open-shell calculation, set `reference="uhf"` in the specification; the workflow
+will automatically switch to UHF-based QED-HF and the corresponding open-shell QED-MP2
+correction.
 
 You can supply your own formatter by subclassing `qed.TextResultFormatter` and passing it to `run_simulation(..., formatter=...)` to change how results are printed.
 
@@ -83,6 +88,7 @@ You can supply your own formatter by subclassing `qed.TextResultFormatter` and p
 | `conv_E`     | float           | `1e-8`    | Energy convergence threshold.                         |
 | `conv_P`     | float           | `1e-7`    | Density convergence threshold.                        |
 | `scf_type`   | string          | `pk`      | SCF type (Psi4 option).                               |
+| `reference`  | string          | `rhf`     | SCF reference (`rhf` for closed-shell, `uhf` for open-shell). |
 | `print_every`| int             | `10`      | Iteration print frequency.                            |
 | `run_mp2`    | bool            | `true`    | Whether to run QED-MP2 after QED-HF.                  |
 | `spin_factor`| string          | `closed_shell` | MP2 spin factor (`closed_shell` or `ghf_equivalent`). |

@@ -17,6 +17,13 @@ def _ensure_lam_tuple(lam: Sequence[float]) -> Tuple[float, float, float]:
     return values  # type: ignore[return-value]
 
 
+def _normalize_reference(ref: str) -> str:
+    ref_lower = ref.lower()
+    if ref_lower not in {"rhf", "uhf"}:
+        raise ValueError("reference must be either 'rhf' or 'uhf'")
+    return ref_lower
+
+
 @dataclass
 class SimulationSpec:
     """
@@ -35,6 +42,7 @@ class SimulationSpec:
     print_every: int = 10
     run_mp2: bool = True
     spin_factor: str = "closed_shell"
+    reference: str = "rhf"
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "SimulationSpec":
@@ -52,6 +60,7 @@ class SimulationSpec:
             print_every=int(data.get("print_every", cls.print_every)),
             run_mp2=bool(data.get("run_mp2", cls.run_mp2)),
             spin_factor=data.get("spin_factor", cls.spin_factor),
+            reference=_normalize_reference(str(data.get("reference", cls.reference))),
         )
 
     @classmethod
@@ -74,6 +83,7 @@ class SimulationSpec:
             "print_every": self.print_every,
             "run_mp2": self.run_mp2,
             "spin_factor": self.spin_factor,
+            "reference": self.reference,
         }
 
 
