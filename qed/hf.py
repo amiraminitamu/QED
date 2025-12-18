@@ -1,7 +1,7 @@
 """
 QED-HF driver and supporting functions.
 """
-
+alpha=0.3
 from __future__ import annotations
 
 from typing import Dict, Tuple
@@ -177,7 +177,9 @@ def run_qed_hf(
         F   = F_e + 2.0 * z * g_ao
 
         eps, C = diagonalize_fock(F, X)
-        P_new = density_matrix(C, nocc)
+        
+        P_build = density_matrix(C, nocc)
+        P_new = sym((1.0 - alpha) * P + alpha * P_build)
 
         A_new = float(np.einsum("ij,ji->", g_ao, P_new).real)
         z_new = -A_new / omega
