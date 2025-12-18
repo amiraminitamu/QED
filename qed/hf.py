@@ -301,7 +301,13 @@ def run_qed_uhf(
         eps_a, Ca = diagonalize_fock(Fa, X)
         eps_b, Cb = diagonalize_fock(Fb, X)
 
-        Pa, Pb, P_new = density_matrix_uhf(Ca, Cb, nocc_a, nocc_b)
+        #Pa, Pb, P_new = density_matrix_uhf(Ca, Cb, nocc_a, nocc_b)
+        Pa_build, Pb_build, _ = density_matrix_uhf(Ca, Cb, nocc_a, nocc_b)
+
+        Pa_new = sym((1.0 - alpha) * Pa + alpha * Pa_build)
+        Pb_new = sym((1.0 - alpha) * Pb + alpha * Pb_build)
+        
+        P_new = sym(Pa_new + Pb_new)
 
         A_new = np.einsum("ij,ji->", g_ao, P_new).real
         z_new = -A_new / omega
