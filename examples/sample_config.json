@@ -8,6 +8,7 @@
   "conv_E": 1e-8,
   "conv_P": 1e-7,
   "scf_type": "pk",
+  "reference": "rhf",
   "print_every": 5,
   "run_mp2": true,
   "spin_factor": "closed_shell"
